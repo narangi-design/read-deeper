@@ -6,6 +6,7 @@ interface OpenLibraryDoc {
   author_name?: string[];
   first_publish_year?: number;
   cover_i?: number;
+  edition_count?: number;
 }
 
 interface OpenLibrarySearchResponse {
@@ -18,7 +19,7 @@ const WORK_ID_PATTERN = /^OL\d+W$/;
 async function queryOpenLibrary(query: string, limit: number): Promise<Book[]> {
   const url = new URL("https://openlibrary.org/search.json");
   url.searchParams.set("q", query);
-  url.searchParams.set("fields", "key,title,author_name,first_publish_year,cover_i");
+  url.searchParams.set("fields", "key,title,author_name,first_publish_year,cover_i,edition_count");
   url.searchParams.set("limit", String(limit));
 
   const res = await fetch(url);
@@ -36,6 +37,7 @@ async function queryOpenLibrary(query: string, limit: number): Promise<Book[]> {
     coverUrl: doc.cover_i
       ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`
       : null,
+    editionCount: doc.edition_count ?? 0,
   }));
 
   return bookSchema.array().parse(books);
