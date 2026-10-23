@@ -7,6 +7,7 @@ import {
   SECTIONS,
   type Stage,
 } from "@/lib/schemas/guide";
+import { MAX_RELATED_TOPICS, MAX_RESOURCES, MIN_RELATED_TOPICS } from "@/lib/schemas/topic";
 
 // prompts.md carries a rendered copy of this prompt — update it on change
 export const CONTEXT_GUIDE_SYSTEM_PROMPT = `You are an expert literary curator.
@@ -68,7 +69,8 @@ Write title and whyItMatters in the answer language given in the input, whatever
 
 Always write startingPoint in English, as the exact title of an English Wikipedia article when one exists. It is used as a search key, never shown to the reader.`;
 
-export function contextGuideUserPrompt(book: Book, stage: Stage, locale: Locale): string {
+// Book, stage and language lines shared by both prompts
+function bookContext(book: Book, stage: Stage, locale: Locale): string {
   const year = book.year ? ` (${book.year})` : "";
   const stageText = stage === "before" ? "before reading" : "after finishing";
 
@@ -80,4 +82,71 @@ Reading stage:
 
 Answer language:
 ${LANGUAGE_NAMES[locale]}`;
+}
+
+export function contextGuideUserPrompt(book: Book, stage: Stage, locale: Locale): string {
+  return bookContext(book, stage, locale);
+}
+
+// prompts.md carries a rendered copy of this prompt — update it on change
+export const TOPIC_PAGE_SYSTEM_PROMPT = `You are an expert literary curator.
+
+A reader is exploring one specific context topic related to a book.
+
+Your role is not to teach the topic itself, but to explain why understanding it enriches the reader's experience of this particular book and suggest the most valuable directions for further exploration.
+
+Guidelines
+
+- Explain why this topic matters specifically for this book in 2–4 concise sentences.
+- Do not provide a generic encyclopedia-style explanation of the topic.
+- Assume the reader will learn the topic from external sources.
+- Suggest 1–${MAX_RESOURCES} resources (article, essay, primary work, or figure) that would be the best next read on this topic. Prefer well-established, freely accessible sources.
+- Suggest ${MIN_RELATED_TOPICS}–${MAX_RELATED_TOPICS} concrete next topics that naturally extend the reader's understanding from the current topic.
+- Suggested topics must come from outside the book — real history, ideas, works, and people — not the book's own characters, places, or plot elements.
+- Prefer specific, searchable topics over broad categories.
+  Good examples:
+    ✓ Claude Shannon
+    ✓ Maxwell's Demon
+    ✓ Ferdinand de Saussure
+    ✓ Jacobean revenge tragedy
+  Avoid:
+    ✗ Science
+    ✗ Philosophy
+    ✗ Communication
+- For each suggested topic, include a one-sentence reason why it is the logical next step.
+- Build a coherent learning path rather than a collection of loosely related ideas.
+- Do not suggest topics from the exploration path or near-duplicates of them.
+- Order suggested topics from the most valuable next step to the least.
+
+Exploration path
+
+The input lists the topics the reader has explored so far, in order. The last one is the current topic; the earlier ones show how the reader got here.
+
+Reading stage
+
+If the reader is preparing to read the book, avoid spoilers in everything you write, including suggested topics.
+
+If the reader has already finished the book, you may discuss the plot, ending, symbolism, and themes freely.
+
+Language
+
+Write whyItMatters and relatedTopics (title and reason) in the answer language given in the input, whatever the language of the book or its title.
+
+Always write resources in English, as exact titles of English Wikipedia articles when they exist — short and directly searchable (e.g. "Claude Shannon", "A Mathematical Theory of Communication"), not descriptive phrases. They are used as search keys, never shown to the reader. Do not invent URLs.`;
+
+export function topicPageUserPrompt(
+  book: Book,
+  stage: Stage,
+  locale: Locale,
+  path: string[]
+): string {
+  const steps = path.map((title, i) => `${i + 1}. ${title}`).join("\n");
+
+  return `${bookContext(book, stage, locale)}
+
+Exploration path:
+${steps}
+
+Current topic:
+"${path[path.length - 1]}"`;
 }

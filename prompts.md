@@ -141,9 +141,16 @@ Jakubowe"); the answer language comes from the UI locale regardless.
 
 ## 2. Topic Page
 
-Called on-demand (lazy) when the user opens a topic — either from the
-Context Guide or from a `relatedTopics` entry (rabbit hole). Powers the
-topic card (steps 5-6).
+Called when the user opens a topic — from the Context Guide or from a
+`relatedTopics` entry (rabbit hole). Powers the topic card (steps 5-6).
+Source of truth for the prompt text is `lib/gemini/prompts.ts` — this copy
+is rendered from it.
+
+Everything the page needs comes from its URL, so a topic link can be shared:
+book id, reading stage, UI locale, and the exploration path (topic titles in
+the order the reader opened them, current one last). The guide's
+`whyItMatters` is not an input — reading it would mean regenerating the whole
+guide on a cache miss; the path gives the model the same context.
 
 ### System prompt
 
@@ -159,9 +166,9 @@ Guidelines
 - Explain why this topic matters specifically for this book in 2–4 concise sentences.
 - Do not provide a generic encyclopedia-style explanation of the topic.
 - Assume the reader will learn the topic from external sources.
-- Suggest 1-3 resource labels (article, essay, primary work, or figure) that would be the best next read on this topic. Prefer well-established, freely accessible sources.
-- Resource labels must be short and directly searchable (e.g. "Claude Shannon", "A Mathematical Theory of Communication", "Ferdinand de Saussure") — not descriptive phrases (avoid "Shannon's foundational paper on information theory"). Do not invent URLs — just name the source.
+- Suggest 1–3 resources (article, essay, primary work, or figure) that would be the best next read on this topic. Prefer well-established, freely accessible sources.
 - Suggest 3–5 concrete next topics that naturally extend the reader's understanding from the current topic.
+- Suggested topics must come from outside the book — real history, ideas, works, and people — not the book's own characters, places, or plot elements.
 - Prefer specific, searchable topics over broad categories.
   Good examples:
     ✓ Claude Shannon
@@ -172,24 +179,47 @@ Guidelines
     ✗ Science
     ✗ Philosophy
     ✗ Communication
-- For each suggested topic, include a one-sentence explanation of why it is the logical next step.
+- For each suggested topic, include a one-sentence reason why it is the logical next step.
 - Build a coherent learning path rather than a collection of loosely related ideas.
-- Do not recommend topics that have already been explored or near-duplicates of them.
+- Do not suggest topics from the exploration path or near-duplicates of them.
 - Order suggested topics from the most valuable next step to the least.
 
-Input
+Exploration path
 
+The input lists the topics the reader has explored so far, in order. The last one is the current topic; the earlier ones show how the reader got here.
+
+Reading stage
+
+If the reader is preparing to read the book, avoid spoilers in everything you write, including suggested topics.
+
+If the reader has already finished the book, you may discuss the plot, ending, symbolism, and themes freely.
+
+Language
+
+Write whyItMatters and relatedTopics (title and reason) in the answer language given in the input, whatever the language of the book or its title.
+
+Always write resources in English, as exact titles of English Wikipedia articles when they exist — short and directly searchable (e.g. "Claude Shannon", "A Mathematical Theory of Communication"), not descriptive phrases. They are used as search keys, never shown to the reader. Do not invent URLs.
+```
+
+### Input (user message)
+
+```
 Book:
-"{title}" by {author} ({year})
+"{title}" by {author} ({year})      ← "({year})" omitted when unknown
+
+Reading stage:
+"before reading" | "after finishing"
+
+Answer language:
+English | Russian
+
+Exploration path:
+1. {first topic}
+2. ...
+N. {current topic}
 
 Current topic:
-"{topicTitle}"
-
-Why this topic was originally recommended:
-"{whyItMatters}"
-
-Already explored topics:
-{previousTopics[]}
+"{current topic}"
 ```
 
 ### Schema
@@ -204,9 +234,10 @@ Already explored topics:
 }
 ```
 
-`topicTitle` is not repeated in the output schema — it's already known on
-the frontend (it's the input, or a `relatedTopics[].title` from a prior
-call).
+The backend keeps at most 3 resources and 5 related topics, drops related
+topics that repeat the path (normalized title match — loop prevention can't
+rely on the model), and drops resources that fell back to a Britannica
+search unless none was found on Wikipedia. The path is capped at 10 topics.
 
 ---
 

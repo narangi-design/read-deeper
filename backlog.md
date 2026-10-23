@@ -22,8 +22,8 @@ Ordered top to bottom so that each task only depends on tasks above it.
 - [x] `getBookById` — book lookup by Open Library work id, for `/book/[id]` URLs (book is never carried in client state or query params)
 - [x] Context Guide — `getContextGuide(bookId, stage, locale)` in `lib/gemini/`, called directly by the guide page (no API route: it's not a public API). Prompt 1 ([prompts.md](prompts.md)) with a 20-section dictionary (3 picked, after-reading-only sections excluded for "before"), flat Further Exploration, answers in the UI language. Familiarity check: model self-assessment (empty guide when low) + soft `obscure` flag for books with a single Open Library edition. Cached with `'use cache: remote'` (no permanent storage — a cache miss regenerates a different guide)
   _Depends on: Canonical book object, Resource resolver_
-- [ ] Topic Page — same pattern as Context Guide (function, not API route): prompt 2, zod schema, resolves `resources[]`, drops resources that fell back to Britannica (keeps one if none found), answers in the UI language with English `resources` labels
-  _Depends on: Resource resolver, Context Guide (consumes its `whyItMatters`/topic shape as input)_
+- [x] Topic Page — `getTopicPage(bookId, stage, locale, path)`, same pattern as Context Guide. Input is the exploration path from the URL (current topic last) instead of the guide's `whyItMatters`, so topic links are shareable and don't depend on the guide being cached. Takes the reading stage (no spoilers before reading). Resolves `resources[]`, drops Britannica fallbacks unless nothing else was found, drops related topics that repeat the path, suggests only topics from outside the book
+  _Depends on: Resource resolver, Context Guide_
 
 ## Frontend
 
@@ -51,7 +51,7 @@ Ordered top to bottom so that each task only depends on tasks above it.
   _Depends on: Context Guide, Topic Page_
 - [ ] Handle no search results / book not found state
   _Depends on: Step 1_
-- [ ] Handle breadcrumb loop prevention end-to-end (don't suggest already-explored topics)
+- [ ] Handle breadcrumb loop prevention end-to-end (don't suggest already-explored topics) — backend half done: Topic Page filters out topics from the path. Remaining: check it in the UI
   _Depends on: Steps 5–6_
 
 ## QA & Ship

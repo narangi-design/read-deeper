@@ -1,7 +1,7 @@
-import { google } from "@ai-sdk/google";
 import { generateText, Output } from "ai";
 import { cacheLife } from "next/cache";
 import { getBookById } from "@/lib/books/search";
+import { model } from "@/lib/gemini/model";
 import type { Locale } from "@/lib/i18n/locales";
 import { resolveResources } from "@/lib/resources/resolve";
 import {
@@ -17,7 +17,6 @@ import {
 } from "@/lib/schemas/guide";
 import { CONTEXT_GUIDE_SYSTEM_PROMPT, contextGuideUserPrompt } from "@/lib/gemini/prompts";
 
-const MODEL = "gemini-3.5-flash";
 // At or below this many Open Library editions the model often knows less than it claims.
 // A soft signal: well-known books sometimes have a single edition record too.
 const MAX_OBSCURE_EDITION_COUNT = 1;
@@ -84,7 +83,7 @@ export async function generateContextGuide(
   if (!book) return null;
 
   const { output } = await generateText({
-    model: google(MODEL),
+    model,
     system: CONTEXT_GUIDE_SYSTEM_PROMPT,
     prompt: contextGuideUserPrompt(book, stage, locale),
     output: Output.object({ schema: generatedGuideSchema }),
