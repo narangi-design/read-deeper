@@ -1,13 +1,14 @@
-import { generateText, Output } from "ai";
-import { cacheLife } from "next/cache";
+import { Output, streamText } from "ai";
 import { getBookById } from "@/lib/books/search";
 import { model } from "@/lib/gemini/model";
 import { TOPIC_PAGE_SYSTEM_PROMPT, topicPageUserPrompt } from "@/lib/gemini/prompts";
 import type { Locale } from "@/lib/i18n/locales";
 import { resolveResources } from "@/lib/resources/resolve";
+import type { Book } from "@/lib/schemas/book";
 import type { Stage } from "@/lib/schemas/guide";
 import {
   generatedTopicPageSchema,
+  type GeneratedTopicPage,
   MAX_RELATED_TOPICS,
   MAX_RESOURCES,
   type RelatedTopic,
@@ -34,23 +35,25 @@ function dropExploredTopics(topics: RelatedTopic[], path: string[]): RelatedTopi
   });
 }
 
-// Uncached generation — use getTopicPage in the app
-export async function generateTopicPage(
-  bookId: string,
-  stage: Stage,
-  locale: Locale,
-  path: string[]
-): Promise<TopicPage | null> {
-  const book = await getBookById(bookId);
-  if (!book) return null;
-
-  const { output } = await generateText({
+// Streams the model's raw answer; the client renders it as it arrives.
+// path comes from the URL and must be validated with topicPathSchema first.
+export function streamGeneratedTopicPage(book: Book, stage: Stage, locale: Locale, path: string[]) {
+  return streamText({
     model,
     system: TOPIC_PAGE_SYSTEM_PROMPT,
     prompt: topicPageUserPrompt(book, stage, locale, path),
     output: Output.object({ schema: generatedTopicPageSchema }),
   });
+}
 
+// Turns the finished model answer into the page the app stores and renders
+export async function finalizeTopicPage(
+  book: Book,
+  stage: Stage,
+  locale: Locale,
+  path: string[],
+  output: GeneratedTopicPage
+): Promise<TopicPage> {
   const labels = output.resources.slice(0, MAX_RESOURCES);
   const resolved = (await resolveResources(labels, locale)).map((resource, i) => ({
     ...resource,
@@ -71,16 +74,26 @@ export async function generateTopicPage(
   };
 }
 
-// Returns null when the book doesn't exist. path comes from the URL and
-// must be validated with topicPathSchema first.
-export async function getTopicPage(
+// Back from a finished page to the model's shape, for clients that asked
+// for a stream of a page someone else generated meanwhile
+export function toGeneratedTopicPage(page: TopicPage): GeneratedTopicPage {
+  return {
+    whyItMatters: page.whyItMatters,
+    resources: page.resources.map((resource) => resource.label),
+    relatedTopics: page.relatedTopics,
+  };
+}
+
+// Whole generation without streaming — for scripts and tests
+export async function generateTopicPage(
   bookId: string,
   stage: Stage,
   locale: Locale,
   path: string[]
 ): Promise<TopicPage | null> {
-  "use cache: remote";
-  cacheLife("max");
+  const book = await getBookById(bookId);
+  if (!book) return null;
 
-  return generateTopicPage(bookId, stage, locale, path);
+  const result = streamGeneratedTopicPage(book, stage, locale, path);
+  return finalizeTopicPage(book, stage, locale, path, await result.output);
 }

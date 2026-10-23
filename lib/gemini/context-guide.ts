@@ -1,9 +1,9 @@
-import { generateText, Output } from "ai";
-import { cacheLife } from "next/cache";
+import { Output, streamText } from "ai";
 import { getBookById } from "@/lib/books/search";
 import { model } from "@/lib/gemini/model";
 import type { Locale } from "@/lib/i18n/locales";
 import { resolveResources } from "@/lib/resources/resolve";
+import type { Book } from "@/lib/schemas/book";
 import {
   AFTER_READING_ONLY_SECTIONS,
   generatedGuideSchema,
@@ -73,22 +73,23 @@ async function resolveTopics(guide: GeneratedGuide, locale: Locale) {
   };
 }
 
-// Uncached generation — use getContextGuide in the app
-export async function generateContextGuide(
-  bookId: string,
-  stage: Stage,
-  locale: Locale
-): Promise<Guide | null> {
-  const book = await getBookById(bookId);
-  if (!book) return null;
-
-  const { output } = await generateText({
+// Streams the model's raw answer; the client renders topics as they arrive
+export function streamGeneratedGuide(book: Book, stage: Stage, locale: Locale) {
+  return streamText({
     model,
     system: CONTEXT_GUIDE_SYSTEM_PROMPT,
     prompt: contextGuideUserPrompt(book, stage, locale),
     output: Output.object({ schema: generatedGuideSchema }),
   });
+}
 
+// Turns the finished model answer into the guide the app stores and renders
+export async function finalizeGuide(
+  book: Book,
+  stage: Stage,
+  locale: Locale,
+  output: GeneratedGuide
+): Promise<Guide> {
   const guide = normalizeSections(output, stage);
 
   return {
@@ -101,15 +102,30 @@ export async function generateContextGuide(
   };
 }
 
-// Returns null when the book doesn't exist. Cached remotely so a guide
-// link opens instantly and doesn't cost another model call.
-export async function getContextGuide(
+// Back from a finished guide to the model's shape, for clients that asked
+// for a stream of a guide someone else generated meanwhile
+export function toGeneratedGuide(guide: Guide): GeneratedGuide {
+  const toGenerated = (topic: Topic): GeneratedTopic => ({
+    ...topic,
+    startingPoint: topic.startingPoint.label,
+  });
+
+  return {
+    familiarity: guide.familiar ? "high" : "low",
+    sections: guide.sections.map((s) => ({ name: s.name, topics: s.topics.map(toGenerated) })),
+    furtherExploration: guide.furtherExploration.map(toGenerated),
+  };
+}
+
+// Whole generation without streaming — for scripts and tests
+export async function generateContextGuide(
   bookId: string,
   stage: Stage,
   locale: Locale
 ): Promise<Guide | null> {
-  "use cache: remote";
-  cacheLife("max");
+  const book = await getBookById(bookId);
+  if (!book) return null;
 
-  return generateContextGuide(bookId, stage, locale);
+  const result = streamGeneratedGuide(book, stage, locale);
+  return finalizeGuide(book, stage, locale, await result.output);
 }
