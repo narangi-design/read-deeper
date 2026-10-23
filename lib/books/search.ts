@@ -12,11 +12,14 @@ interface OpenLibrarySearchResponse {
   docs: OpenLibraryDoc[];
 }
 
-export async function searchBooks(query: string): Promise<Book[]> {
+// Open Library work ids look like "OL893414W"
+const WORK_ID_PATTERN = /^OL\d+W$/;
+
+async function queryOpenLibrary(query: string, limit: number): Promise<Book[]> {
   const url = new URL("https://openlibrary.org/search.json");
   url.searchParams.set("q", query);
   url.searchParams.set("fields", "key,title,author_name,first_publish_year,cover_i");
-  url.searchParams.set("limit", "10");
+  url.searchParams.set("limit", String(limit));
 
   const res = await fetch(url);
   if (!res.ok) {
@@ -36,4 +39,15 @@ export async function searchBooks(query: string): Promise<Book[]> {
   }));
 
   return bookSchema.array().parse(books);
+}
+
+export async function searchBooks(query: string): Promise<Book[]> {
+  return queryOpenLibrary(query, 10);
+}
+
+export async function getBookById(id: string): Promise<Book | null> {
+  if (!WORK_ID_PATTERN.test(id)) return null;
+
+  const [book] = await queryOpenLibrary(`key:/works/${id}`, 1);
+  return book ?? null;
 }

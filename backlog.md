@@ -18,6 +18,8 @@ Ordered top to bottom so that each task only depends on tasks above it.
 - [x] ~~Canonical book object mapping~~ — done as part of the search route above
 - [x] Resource resolver function — label → URL (Wikipedia opensearch, fallback Britannica search link)
   _Depends on: Setup_ — no dependency on the other backend tasks, can be built in parallel with them
+- [x] Resolver returns `{ url, source, title }` with a match check: Wikipedia title search → Wikipedia full-text search → Britannica search link (`source: "britannica-search"`)
+- [x] `getBookById` — book lookup by Open Library work id, for `/book/[id]` URLs (book is never carried in client state or query params)
 - [ ] Context Guide API route — calls Gemini with prompt 1 ([prompts.md](prompts.md)), validates output against zod schema, resolves `startingPoint` via resource resolver
   _Depends on: Canonical book object, Resource resolver_
 - [ ] Topic Page API route — calls Gemini with prompt 2, validates output against zod schema, resolves `resources[]` via resource resolver
