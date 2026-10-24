@@ -4,7 +4,7 @@ import { BookCover } from "@/components/BookCover";
 import { searchBooks } from "@/lib/books/search";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { isLocale } from "@/lib/i18n/locales";
-import type { Book } from "@/lib/schemas/book";
+import { displayTitle, type Book } from "@/lib/schemas/book";
 
 // Search lives in the URL (?q=), so results can be refreshed and shared
 export default async function SearchPage({ params, searchParams }: PageProps<"/[lang]">) {
@@ -19,7 +19,7 @@ export default async function SearchPage({ params, searchParams }: PageProps<"/[
   let failed = false;
   if (query) {
     try {
-      books = await searchBooks(query);
+      books = await searchBooks(query, lang);
     } catch {
       failed = true;
     }
@@ -65,7 +65,7 @@ export default async function SearchPage({ params, searchParams }: PageProps<"/[
               <li key={book.id}>
                 <Link href={`/${lang}/book/${book.id}`} className="group flex flex-col gap-4 no-underline">
                   <BookCover url={book.coverUrl} alt="" size="small" />
-                  <span className="poster text-[30px] leading-[0.95] group-hover:text-signal">{book.title}</span>
+                  <span className="poster text-[30px] leading-[0.95] group-hover:text-signal">{displayTitle(book, lang)}</span>
                   <span className="label-mono text-concrete">
                     {book.author}
                     {book.year && ` — ${book.year}`}

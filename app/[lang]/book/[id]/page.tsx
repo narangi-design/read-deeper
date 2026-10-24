@@ -6,10 +6,12 @@ import { PosterTitle } from "@/components/PosterTitle";
 import { getBookById } from "@/lib/books/search";
 import { getDictionary, plural } from "@/lib/i18n/dictionaries";
 import { isLocale } from "@/lib/i18n/locales";
+import { displayTitle } from "@/lib/schemas/book";
 
 export async function generateMetadata({ params }: PageProps<"/[lang]/book/[id]">): Promise<Metadata> {
-  const book = await getBookById((await params).id);
-  return book ? { title: book.title } : {};
+  const { lang, id } = await params;
+  const book = await getBookById(id);
+  return book && isLocale(lang) ? { title: displayTitle(book, lang) } : {};
 }
 
 export default async function BookPage({ params }: PageProps<"/[lang]/book/[id]">) {
@@ -18,6 +20,7 @@ export default async function BookPage({ params }: PageProps<"/[lang]/book/[id]"
   const book = await getBookById(id);
   if (!book) notFound();
   const dict = getDictionary(lang);
+  const title = displayTitle(book, lang);
 
   const coords = [book.id, book.year, plural(lang, book.editionCount, dict.book.editions)]
     .filter(Boolean)
@@ -31,7 +34,7 @@ export default async function BookPage({ params }: PageProps<"/[lang]/book/[id]"
     <main className="flex flex-col gap-10 overflow-hidden px-gutter pt-12 pb-18">
       <div className="flex flex-col gap-2">
         <p className="label-mono m-0 text-concrete">{coords}</p>
-        <PosterTitle title={book.title} variant="hero" />
+        <PosterTitle title={title} variant="hero" />
       </div>
 
       <div className="flex flex-wrap items-start gap-12">
@@ -61,7 +64,7 @@ export default async function BookPage({ params }: PageProps<"/[lang]/book/[id]"
           </section>
         </div>
 
-        <BookCover url={book.coverUrl} alt={`${dict.book.cover} ${book.title}`} size="large" />
+        <BookCover url={book.coverUrl} alt={`${dict.book.cover} ${title}`} size="large" />
       </div>
     </main>
   );

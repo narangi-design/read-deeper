@@ -6,12 +6,14 @@ import { GuideStream } from "@/components/guide/GuideStream";
 import { getBookById } from "@/lib/books/search";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { isLocale } from "@/lib/i18n/locales";
+import { displayTitle } from "@/lib/schemas/book";
 import { stageSchema } from "@/lib/schemas/guide";
 import { getStoredGuide } from "@/lib/storage/generated";
 
 export async function generateMetadata({ params }: PageProps<"/[lang]/book/[id]/guide">): Promise<Metadata> {
-  const book = await getBookById((await params).id);
-  return book ? { title: book.title } : {};
+  const { lang, id } = await params;
+  const book = await getBookById(id);
+  return book && isLocale(lang) ? { title: displayTitle(book, lang) } : {};
 }
 
 // A stored guide renders right away; a new one streams in on the client
