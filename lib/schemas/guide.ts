@@ -36,6 +36,7 @@ export const MAX_SECTIONS = 3;
 export const MIN_TOPICS_PER_SECTION = 2;
 
 export const stageSchema = z.enum(["before", "after"]);
+export const STAGES = stageSchema.options;
 
 export type Section = (typeof SECTIONS)[number];
 export type Stage = z.infer<typeof stageSchema>;

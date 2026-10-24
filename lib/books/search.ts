@@ -1,4 +1,5 @@
 import { bookSchema, type Book } from "@/lib/schemas/book";
+import { redis } from "@/lib/storage/redis";
 
 interface OpenLibraryDoc {
   key: string;
@@ -47,9 +48,18 @@ export async function searchBooks(query: string): Promise<Book[]> {
   return queryOpenLibrary(query, 10);
 }
 
+// Every book, guide and topic page looks the book up, and Open Library takes
+// up to a few seconds — so lookups are kept in Redis for a week
+const BOOK_TTL_SECONDS = 7 * 24 * 60 * 60;
+
 export async function getBookById(id: string): Promise<Book | null> {
   if (!WORK_ID_PATTERN.test(id)) return null;
 
+  const key = `book:${id}`;
+  const cached = bookSchema.safeParse(await redis.get(key).catch(() => null));
+  if (cached.success) return cached.data;
+
   const [book] = await queryOpenLibrary(`key:/works/${id}`, 1);
+  if (book) await redis.set(key, book, { ex: BOOK_TTL_SECONDS }).catch(() => {});
   return book ?? null;
 }

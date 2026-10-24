@@ -33,29 +33,28 @@ Ordered top to bottom so that each task only depends on tasks above it.
 
 ## Frontend
 
-- [ ] Shared layout + minimal design system (typography, spacing, loading/error states)
+- [x] Shared layout + design system — brutalist poster style (paper / ink / signal red; Fira Sans Extra Condensed, JetBrains Mono, Golos Text — all with Cyrillic). Tailwind v4 tokens in `@theme`, signature devices as `@utility` (`poster`, `label-mono`, `grain`, `stair-step`, `text-outline`, `cover-mono`). Mockup: https://claude.ai/artifact/AYUrsYdUtB8MXQLC28uze8
   _Depends on: Setup_
-- [ ] i18n routing — `en`/`ru` locale prefix in URLs (`app/[lang]`), default picked from browser language, switcher in the header. UI strings and section names translated via dictionaries (the model always returns English section keys). The locale in the URL keeps shared guide links in the sender's language
+- [x] i18n routing — `en`/`ru` locale prefix in URLs (`app/[lang]`), default picked from browser language, switcher in the header. UI strings and section names translated via dictionaries (the model always returns English section keys). The locale in the URL keeps shared guide links in the sender's language
   _Depends on: Shared layout_
 - [ ] Decide how to show book titles: Open Library returns the original-language title ("Мастер и Маргарита", "Księgi Jakubowe") even for English searches, and sometimes a messy one ("Bel Kaufman's up the down stair case")
   _Depends on: Step 2_
 - [ ] Search by translated titles — Open Library can't find "Вверх по лестнице, ведущей вниз". Proposal: search Wikidata (multilingual labels + Open Library work id, P648), fall back to Open Library search; Wikidata's label in the UI locale also answers the title question above
   _Depends on: Step 1_
-- [ ] Guide loading — title fill reflects real progress: ~10% creep while the model thinks, then topics received / expected, full when the stream closes
+- [x] Guide loading — title fill reflects real progress: ~10% creep while the model thinks, then topics received / expected, full when the stream closes
   _Depends on: Streaming + storage, Step 4_
-- [ ] Step 1 — Home/search page
+- [x] Step 1 — Home/search page — server-rendered, query in the URL (`/ru?q=…`)
   _Depends on: Book search API route_
-- [ ] Step 2 — Confirm book page
-  _Depends on: Book search API route (result shape), Shared layout_
-- [ ] Step 3 — Reading stage selection
-  _Depends on: Step 2 (needs confirmed book carried forward in route/state)_
-- [ ] Step 4 — Context Guide results page (sections + Further Exploration)
+- [x] Steps 2–3 — Book page with stage choice, merged into one page (`/[lang]/book/[id]`)
+  _Depends on: Book search, Shared layout_
+- [x] Step 4 — Guide page (`/[lang]/book/[id]/guide?stage=`): stored guide renders on the server, a new one streams in (`GuideStream`, `useObject`) and refreshes into the stored one. Retry button on error
   _Depends on: Context Guide, Step 3_
 - [ ] Steps 5–6 — Topic page incl. rabbit-hole navigation (breadcrumb, related topics)
   _Depends on: Topic Page, Step 4_
 
 ## Integration & Polish
 
+- [x] Gemini thinking level set to minimal — first topics in ~1.5 s, whole guide ~4 s instead of ~27 s, close quality (compared on one book)
 - [ ] Gemini free-tier quota — 7 parallel guide generations already hit it; needs a paid tier or rate limiting before real traffic
 - [ ] Handle malformed/empty AI output gracefully (retry once, then friendly error state)
   _Depends on: Context Guide, Topic Page_

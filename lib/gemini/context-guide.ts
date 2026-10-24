@@ -1,6 +1,6 @@
 import { Output, streamText } from "ai";
 import { getBookById } from "@/lib/books/search";
-import { model } from "@/lib/gemini/model";
+import { model, providerOptions } from "@/lib/gemini/model";
 import type { Locale } from "@/lib/i18n/locales";
 import { resolveResources } from "@/lib/resources/resolve";
 import type { Book } from "@/lib/schemas/book";
@@ -77,6 +77,7 @@ async function resolveTopics(guide: GeneratedGuide, locale: Locale) {
 export function streamGeneratedGuide(book: Book, stage: Stage, locale: Locale) {
   return streamText({
     model,
+    providerOptions,
     system: CONTEXT_GUIDE_SYSTEM_PROMPT,
     prompt: contextGuideUserPrompt(book, stage, locale),
     output: Output.object({ schema: generatedGuideSchema }),

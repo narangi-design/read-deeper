@@ -1,6 +1,6 @@
 import { Output, streamText } from "ai";
 import { getBookById } from "@/lib/books/search";
-import { model } from "@/lib/gemini/model";
+import { model, providerOptions } from "@/lib/gemini/model";
 import { TOPIC_PAGE_SYSTEM_PROMPT, topicPageUserPrompt } from "@/lib/gemini/prompts";
 import type { Locale } from "@/lib/i18n/locales";
 import { resolveResources } from "@/lib/resources/resolve";
@@ -40,6 +40,7 @@ function dropExploredTopics(topics: RelatedTopic[], path: string[]): RelatedTopi
 export function streamGeneratedTopicPage(book: Book, stage: Stage, locale: Locale, path: string[]) {
   return streamText({
     model,
+    providerOptions,
     system: TOPIC_PAGE_SYSTEM_PROMPT,
     prompt: topicPageUserPrompt(book, stage, locale, path),
     output: Output.object({ schema: generatedTopicPageSchema }),
