@@ -1,9 +1,10 @@
 import { LOCALES, type Locale } from "@/lib/i18n/locales";
-import type { BookTitles } from "@/lib/schemas/book";
+import type { LocalizedText } from "@/lib/schemas/book";
 
 // Wikidata knows works under their titles in many languages and links them
 // to Open Library (property P648). Open Library itself only knows its
-// catalogue titles, so "В ожидании Годо" finds nothing there.
+// catalogue titles, so "В ожидании Годо" finds nothing there. Wikidata also
+// gives the title and the author's name in each UI language.
 const WIKIDATA_API = "https://www.wikidata.org/w/api.php";
 // Wikimedia asks API clients to identify themselves
 const USER_AGENT = "ReadDeeper/0.1 (https://github.com/narangi-design/read-deeper)";
@@ -12,17 +13,25 @@ const OPEN_LIBRARY_ID = "P648";
 const AUTHOR = "P50";
 const WORK_ID_PATTERN = /^OL\d+W$/;
 const SEARCH_LIMIT = 10;
+// wbgetentities takes at most 50 ids per request
+const MAX_IDS_PER_REQUEST = 50;
 
 interface Entity {
   claims?: Record<string, { mainsnak: { datavalue?: { value: unknown } } }[]>;
   labels?: Record<string, { value: string }>;
 }
 
+// A book's title and author name in the UI languages
+export interface WorkNames {
+  titles: LocalizedText;
+  authors: LocalizedText;
+}
+
 // A work Open Library has under `workId`, or — when Wikidata lacks the link —
 // one to look up there by its English title
 export type WikidataWork =
-  | { workId: string; titles: BookTitles }
-  | { workId: null; englishTitle: string; titles: BookTitles };
+  | ({ workId: string } & WorkNames)
+  | ({ workId: null; englishTitle: string } & WorkNames);
 
 async function queryWikidata<T>(params: Record<string, string>): Promise<T | null> {
   const url = new URL(WIKIDATA_API);
@@ -43,24 +52,42 @@ function workIdOf(entity: Entity): string | null {
   return null;
 }
 
-function titlesOf(entity: Entity): BookTitles {
-  const titles: BookTitles = {};
+function authorIdOf(entity: Entity): string | null {
+  const value = entity.claims?.[AUTHOR]?.[0]?.mainsnak.datavalue?.value;
+  return value && typeof value === "object" && "id" in value ? String(value.id) : null;
+}
+
+function labelsOf(entity: Entity | undefined): LocalizedText {
+  const labels: LocalizedText = {};
   for (const locale of LOCALES) {
-    const label = entity.labels?.[locale]?.value;
-    if (label) titles[locale] = label;
+    const label = entity?.labels?.[locale]?.value;
+    if (label) labels[locale] = label;
   }
-  return titles;
+  return labels;
 }
 
 async function getEntities(ids: string[], props: string): Promise<Record<string, Entity>> {
-  if (ids.length === 0) return {};
-  const data = await queryWikidata<{ entities?: Record<string, Entity> }>({
-    action: "wbgetentities",
-    ids: ids.join("|"),
-    props,
-    languages: LOCALES.join("|"),
+  const entities: Record<string, Entity> = {};
+  for (let i = 0; i < ids.length; i += MAX_IDS_PER_REQUEST) {
+    const data = await queryWikidata<{ entities?: Record<string, Entity> }>({
+      action: "wbgetentities",
+      ids: ids.slice(i, i + MAX_IDS_PER_REQUEST).join("|"),
+      props,
+      languages: LOCALES.join("|"),
+    });
+    Object.assign(entities, data?.entities ?? {});
+  }
+  return entities;
+}
+
+// Titles and author names for work items, authors fetched in one batch
+async function namesOf(entities: Entity[]): Promise<WorkNames[]> {
+  const authorIds = [...new Set(entities.flatMap((entity) => authorIdOf(entity) ?? []))];
+  const authors = await getEntities(authorIds, "labels");
+  return entities.map((entity) => {
+    const authorId = authorIdOf(entity);
+    return { titles: labelsOf(entity), authors: authorId ? labelsOf(authors[authorId]) : {} };
   });
-  return data?.entities ?? {};
 }
 
 async function searchItemIds(query: string, language: Locale): Promise<string[]> {
@@ -84,35 +111,47 @@ export async function findWorksByTitle(query: string, locale: Locale): Promise<W
   const ids = [...new Set(found.flat())];
 
   const entities = await getEntities(ids, "claims|labels");
-  const works: WikidataWork[] = [];
+  type Candidate = { entity: Entity; workId: string | null; englishTitle?: string };
   const seen = new Set<string>();
-  for (const id of ids) {
+  const books = ids.flatMap((id): Candidate[] => {
     const entity = entities[id];
-    if (!entity) continue;
-    const titles = titlesOf(entity);
+    if (!entity) return [];
     const workId = workIdOf(entity);
-
-    if (workId && !seen.has(workId)) {
+    if (workId) {
+      if (seen.has(workId)) return [];
       seen.add(workId);
-      works.push({ workId, titles });
-    } else if (!workId && entity.claims?.[AUTHOR] && titles.en) {
-      works.push({ workId: null, englishTitle: titles.en, titles });
+      return [{ entity, workId }];
     }
-  }
-  return works;
+    const englishTitle = entity.labels?.en?.value;
+    return entity.claims?.[AUTHOR] && englishTitle ? [{ entity, workId: null, englishTitle }] : [];
+  });
+
+  const names = await namesOf(books.map((book) => book.entity));
+  return books.map(({ workId, englishTitle }, i): WikidataWork =>
+    workId ? { workId, ...names[i] } : { workId: null, englishTitle: englishTitle!, ...names[i] }
+  );
 }
 
-// Titles of an Open Library work in the supported languages, if Wikidata has it
-export async function getWorkTitles(workId: string): Promise<BookTitles> {
+// Names for Open Library works Wikidata links to, keyed by work id.
+// One search finds all the items: haswbstatement takes `|` as OR.
+export async function getWorkNames(workIds: string[]): Promise<Map<string, WorkNames>> {
+  const result = new Map<string, WorkNames>();
+  if (workIds.length === 0) return result;
+
   const data = await queryWikidata<{ query?: { search?: { title: string }[] } }>({
     action: "query",
     list: "search",
-    srsearch: `haswbstatement:${OPEN_LIBRARY_ID}=${workId}`,
-    srlimit: "1",
+    srsearch: `haswbstatement:${workIds.map((id) => `${OPEN_LIBRARY_ID}=${id}`).join("|")}`,
+    srlimit: String(Math.min(workIds.length * 2, 50)),
+    srprop: "",
   });
-  const itemId = data?.query?.search?.[0]?.title;
-  if (!itemId) return {};
+  const itemIds = data?.query?.search?.map((item) => item.title) ?? [];
+  const entities = Object.values(await getEntities(itemIds, "claims|labels"));
 
-  const entity = (await getEntities([itemId], "labels"))[itemId];
-  return entity ? titlesOf(entity) : {};
+  const names = await namesOf(entities);
+  entities.forEach((entity, i) => {
+    const workId = workIdOf(entity);
+    if (workId && workIds.includes(workId) && !result.has(workId)) result.set(workId, names[i]);
+  });
+  return result;
 }

@@ -4,7 +4,7 @@ import { BookCover } from "@/components/BookCover";
 import { searchBooks } from "@/lib/books/search";
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { isLocale } from "@/lib/i18n/locales";
-import { displayTitle, type Book } from "@/lib/schemas/book";
+import { displayAuthor, displayTitle, type Book } from "@/lib/schemas/book";
 
 // Search lives in the URL (?q=), so results can be refreshed and shared
 export default async function SearchPage({ params, searchParams }: PageProps<"/[lang]">) {
@@ -67,7 +67,7 @@ export default async function SearchPage({ params, searchParams }: PageProps<"/[
                   <BookCover url={book.coverUrl} alt="" size="small" />
                   <span className="poster text-[30px] leading-[0.95] group-hover:text-signal">{displayTitle(book, lang)}</span>
                   <span className="label-mono text-concrete">
-                    {book.author}
+                    {displayAuthor(book, lang)}
                     {book.year && ` — ${book.year}`}
                   </span>
                 </Link>

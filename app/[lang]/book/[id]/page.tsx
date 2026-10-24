@@ -6,7 +6,7 @@ import { PosterTitle } from "@/components/PosterTitle";
 import { getBookById } from "@/lib/books/search";
 import { getDictionary, plural } from "@/lib/i18n/dictionaries";
 import { isLocale } from "@/lib/i18n/locales";
-import { displayTitle } from "@/lib/schemas/book";
+import { displayAuthor, displayTitle } from "@/lib/schemas/book";
 
 export async function generateMetadata({ params }: PageProps<"/[lang]/book/[id]">): Promise<Metadata> {
   const { lang, id } = await params;
@@ -39,7 +39,7 @@ export default async function BookPage({ params }: PageProps<"/[lang]/book/[id]"
 
       <div className="flex flex-wrap items-start gap-12">
         <div className="flex max-w-[640px] flex-[1_1_420px] flex-col gap-10">
-          <p className="poster-thin m-0 text-[clamp(36px,4vw,56px)]">{book.author}</p>
+          <p className="poster-thin m-0 text-[clamp(36px,4vw,56px)]">{displayAuthor(book, lang)}</p>
 
           <section aria-labelledby="stage-question" className="flex flex-col gap-4">
             <h2 id="stage-question" className="poster m-0 max-w-[14ch] text-[32px] leading-[1.05] font-extrabold">

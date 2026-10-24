@@ -66,12 +66,6 @@
   margin-left: min(calc(var(--step, 0) * 6vw), calc(var(--step, 0) * 80px));
 }
 
-/* Outlined poster type for the loading fill */
-@utility text-outline {
-  color: transparent;
-  -webkit-text-stroke: 3px var(--color-ink);
-}
-
 @layer base {
   body {
     @apply bg-paper text-ink font-sans grain antialiased;

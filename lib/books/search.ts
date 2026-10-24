@@ -1,4 +1,4 @@
-import { findWorksByTitle, getWorkTitles, type WikidataWork } from "@/lib/books/wikidata";
+import { findWorksByTitle, getWorkNames, type WikidataWork } from "@/lib/books/wikidata";
 import type { Locale } from "@/lib/i18n/locales";
 import { bookSchema, type Book } from "@/lib/schemas/book";
 import { redis } from "@/lib/storage/redis";
@@ -83,14 +83,17 @@ async function booksFromWikidata(query: string, locale: Locale): Promise<Book[]>
     Promise.all(
       unlinked.map(async (work) => {
         const book = await getBookByTitle(work.englishTitle).catch(() => null);
-        return book && { ...book, titles: work.titles };
+        return book && { ...book, titles: work.titles, authors: work.authors };
       })
     ),
   ]);
 
-  const titles = new Map(linked.map((work) => [work.workId, work.titles]));
+  const names = new Map(linked.map((work) => [work.workId, work]));
   const books = [
-    ...byId.map((book) => ({ ...book, titles: titles.get(book.id) ?? {} })),
+    ...byId.map((book) => {
+      const work = names.get(book.id);
+      return { ...book, titles: work?.titles ?? {}, authors: work?.authors ?? {} };
+    }),
     ...byTitle.flatMap((book) => book ?? []),
   ];
   // A series and its first book can point at the same work: keep the first
@@ -118,25 +121,32 @@ function sharesWord(query: string, book: Book): boolean {
   return [...words(query)].some((word) => bookWords.has(word));
 }
 
+// Catalogue results get their title and author in the UI languages too,
+// whatever language the query was in. Missing names aren't worth failing for.
+async function withNames(books: Book[]): Promise<Book[]> {
+  const names = await getWorkNames(books.map((book) => book.id)).catch(() => new Map());
+  return books.map((book) => ({ ...book, ...names.get(book.id) }));
+}
+
 // Wikidata finds works by translated titles ("В ожидании Годо") and comes
 // first; Open Library's own search adds what Wikidata doesn't know.
 // Fails only when both sources fail. Results are kept in Redis for a day.
 export async function searchBooks(query: string, locale: Locale): Promise<Book[]> {
-  const key = `search:v1:${locale}:${query.toLowerCase().replace(/\s+/g, " ")}`;
+  const key = `search:v2:${locale}:${query.toLowerCase().replace(/\s+/g, " ")}`;
   const cached = bookSchema.array().safeParse(await redis.get(key).catch(() => null));
   if (cached.success) return cached.data;
 
   const [works, catalogue] = await Promise.allSettled([
     booksFromWikidata(query, locale),
-    queryOpenLibrary(query, SEARCH_LIMIT, CATALOGUE_TIMEOUT_MS),
+    queryOpenLibrary(query, SEARCH_LIMIT, CATALOGUE_TIMEOUT_MS).then((books) =>
+      withNames(books.filter((book) => sharesWord(query, book)))
+    ),
   ]);
   if (works.status === "rejected" && catalogue.status === "rejected") throw catalogue.reason;
 
   const fromWikidata = works.status === "fulfilled" ? works.value : [];
   const known = new Set(fromWikidata.map((book) => book.id));
-  const fromCatalogue = (catalogue.status === "fulfilled" ? catalogue.value : []).filter((book) =>
-    sharesWord(query, book)
-  );
+  const fromCatalogue = catalogue.status === "fulfilled" ? catalogue.value : [];
   const books = [...fromWikidata, ...fromCatalogue.filter((book) => !known.has(book.id))].slice(
     0,
     SEARCH_LIMIT
@@ -150,6 +160,7 @@ export async function searchBooks(query: string, locale: Locale): Promise<Book[]
   if (!failure && books.length > 0) {
     await redis.set(key, books, { ex: SEARCH_TTL_SECONDS }).catch(() => {});
   }
+  await rememberBooks(books);
   return books;
 }
 
@@ -158,20 +169,42 @@ export async function searchBooks(query: string, locale: Locale): Promise<Book[]
 // Bump the key version when the stored Book shape changes.
 const BOOK_TTL_SECONDS = 7 * 24 * 60 * 60;
 
+function bookKey(id: string): string {
+  return `book:v3:${id}`;
+}
+
+// Search may find a book's names by a route the book page can't retrace
+// (a Wikidata item linked to another Open Library work): remember them
+async function rememberBooks(books: Book[]): Promise<void> {
+  const named = books.filter((book) => Object.keys(book.titles).length > 0);
+  if (named.length === 0) return;
+  const pipeline = redis.pipeline();
+  for (const book of named) pipeline.set(bookKey(book.id), book, { ex: BOOK_TTL_SECONDS });
+  await pipeline.exec().catch(() => {});
+}
+
+// Names for a work Wikidata doesn't link to directly: an item with the same
+// English title, as search finds it
+async function namesByTitle(book: Book): Promise<Partial<Pick<Book, "titles" | "authors">>> {
+  const sameTitle = (title: string) => title.toLowerCase() === book.title.toLowerCase();
+  const works = await findWorksByTitle(book.title, "en");
+  const match = works.find((work) => work.workId === book.id || (work.workId === null && sameTitle(work.englishTitle)));
+  return match ? { titles: match.titles, authors: match.authors } : {};
+}
+
 export async function getBookById(id: string): Promise<Book | null> {
   if (!WORK_ID_PATTERN.test(id)) return null;
 
-  const key = `book:v2:${id}`;
-  const cached = bookSchema.safeParse(await redis.get(key).catch(() => null));
+  const cached = bookSchema.safeParse(await redis.get(bookKey(id)).catch(() => null));
   if (cached.success) return cached.data;
 
-  const [[found], titles] = await Promise.all([
+  const [[found], names] = await Promise.all([
     queryOpenLibrary(`key:/works/${id}`, 1),
-    getWorkTitles(id).catch(() => ({})),
+    getWorkNames([id]).catch(() => new Map()),
   ]);
   if (!found) return null;
 
-  const book = { ...found, titles };
-  await redis.set(key, book, { ex: BOOK_TTL_SECONDS }).catch(() => {});
+  const book: Book = { ...found, ...(names.get(id) ?? (await namesByTitle(found).catch(() => ({})))) };
+  await redis.set(bookKey(id), book, { ex: BOOK_TTL_SECONDS }).catch(() => {});
   return book;
 }

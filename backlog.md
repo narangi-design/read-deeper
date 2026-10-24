@@ -40,7 +40,7 @@ Ordered top to bottom so that each task only depends on tasks above it.
 - [x] Book titles in the UI language: Wikidata labels (`book.titles`), falling back to the catalogue title. Was: decide how to show book titles — Open Library returns the original-language title ("Мастер и Маргарита", "Księgi Jakubowe") even for English searches, and sometimes a messy one ("Bel Kaufman's up the down stair case")
   _Depends on: Step 2_
 - [x] Search by translated titles — Wikidata (labels in en/ru → Open Library work id, P648; written works without the link are looked up by English title) first, sorted by edition count, then Open Library's own search filtered to results sharing a word with the query. Results cached a day; Open Library calls time out (it took 3–12 s during testing). Found: В ожидании Годо, Мастер и Маргарита, Бледный огонь, Вверх по лестнице, ведущей вниз, Дюна, Сто лет одиночества
-- [ ] Author names in the UI language (Wikidata P50 label) — "Samuel Beckett" shows in Latin on the Russian UI
+- [x] Author names in the UI language (Wikidata P50 label), for every search result whatever the query language. Names search finds are remembered in the book cache; a direct link falls back to a Wikidata search by the catalogue title. Gap: a direct link to a book whose catalogue title Wikidata can't match ("Bel Kaufman's up the down stair case") shows catalogue names until someone searches for it
   _Depends on: Step 1_
 - [x] Guide loading — title fill never stands still: it creeps toward 97% (slower as it nears it), jumps to topics received / expected with each topic, full when the stream closes
   _Depends on: Streaming + storage, Step 4_
