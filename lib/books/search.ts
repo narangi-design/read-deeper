@@ -53,6 +53,10 @@ const CATALOGUE_TIMEOUT_MS = 5000;
 const LOOKUP_TIMEOUT_MS = 8000;
 // Wikidata works missing an Open Library link, looked up by English title
 const MAX_TITLE_LOOKUPS = 3;
+// Wikidata links are sometimes wrong ("Lolita" → "Lolita. A Screenplay", 4
+// editions). A linked work with a different title and fewer editions than
+// this is checked against a lookup by the English title.
+const SUSPECT_EDITION_COUNT = 20;
 const SEARCH_TTL_SECONDS = 24 * 60 * 60;
 
 type LinkedWork = Extract<WikidataWork, { workId: string }>;
@@ -89,13 +93,24 @@ async function booksFromWikidata(query: string, locale: Locale): Promise<Book[]>
   ]);
 
   const names = new Map(linked.map((work) => [work.workId, work]));
-  const books = [
-    ...byId.map((book) => {
+  const linkedBooks = await Promise.all(
+    byId.map(async (book): Promise<Book[]> => {
       const work = names.get(book.id);
-      return { ...book, titles: work?.titles ?? {}, authors: work?.authors ?? {} };
-    }),
-    ...byTitle.flatMap((book) => book ?? []),
-  ];
+      const named = { ...book, titles: work?.titles ?? {}, authors: work?.authors ?? {} };
+      const english = work?.titles.en;
+      const suspect =
+        english && !sameTitle(book.title, english) && book.editionCount < SUSPECT_EDITION_COUNT;
+      if (!suspect) return [named];
+
+      const better = await getBookByTitle(english).catch(() => null);
+      const isBetter =
+        better && better.id !== book.id && sameTitle(better.title, english) && better.editionCount > book.editionCount;
+      // The link was wrong: the names belong to the better match, and the
+      // linked work keeps its own catalogue title
+      return isBetter ? [{ ...better, titles: named.titles, authors: named.authors }, book] : [named];
+    })
+  );
+  const books = [...linkedBooks.flat(), ...byTitle.flatMap((book) => book ?? [])];
   // A series and its first book can point at the same work: keep the first
   // (direct links come before title lookups)
   const unique = books.filter((book, i) => books.findIndex((other) => other.id === book.id) === i);
@@ -112,6 +127,10 @@ function words(text: string): Set<string> {
       .split(/[^\p{L}\p{N}]+/u)
       .filter((word) => word.length > 2)
   );
+}
+
+function sameTitle(a: string, b: string): boolean {
+  return [...words(a)].join(" ") === [...words(b)].join(" ");
 }
 
 // Open Library answers an unfamiliar query with loosely related books

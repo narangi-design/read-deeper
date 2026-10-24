@@ -55,10 +55,12 @@ Ordered top to bottom so that each task only depends on tasks above it.
 
 ## Integration & Polish
 
-- [x] Gemini thinking level set to minimal — first topics in ~1.5 s, whole guide ~4 s instead of ~27 s, close quality (compared on one book)
+- [x] Gemini thinking level: medium. Minimal/low answer in ~4 s but write sloppy Russian ("гумор", broken agreement and case) and invent terms even with an explicit grammar instruction; default spends ~24 s before the first token. Medium is not yet measured (quota ran out) — check speed and Russian on 3–4 books
 - [ ] Gemini free-tier quota — 7 parallel guide generations already hit it; needs a paid tier or rate limiting before real traffic
 - [ ] Handle malformed/empty AI output gracefully (retry once, then friendly error state) — guide done: Gemini sometimes stops mid-answer (finish reason "other", seen twice), the client retries once silently, then shows an error with a retry button. Remaining: topic page
   _Depends on: Context Guide, Topic Page_
+- [x] Search loading — results stream behind a skeleton (`Suspense` keyed by the query, `next/form` client navigation)
+- [ ] When Open Library times out on the Wikidata lookup, Wikidata's finds are lost; they could show from Wikidata data alone (title, author, year, no cover)
 - [ ] Handle no search results / book not found state
   _Depends on: Step 1_
 - [ ] Handle breadcrumb loop prevention end-to-end (don't suggest already-explored topics) — backend half done: Topic Page filters out topics from the path. Remaining: check it in the UI

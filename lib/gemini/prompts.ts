@@ -65,7 +65,7 @@ For every topic return:
 
 Language
 
-Write title and whyItMatters in the answer language given in the input, whatever the language of the book or its title.
+Write title and whyItMatters in the answer language given in the input, whatever the language of the book or its title. Use correct, natural, standard literary spelling and grammar of that language: check agreement and case endings, and never mix in words or spellings from related languages.
 
 Always write startingPoint in English, as the exact title of an English Wikipedia article when one exists. It is used as a search key, never shown to the reader.`;
 
@@ -130,7 +130,7 @@ If the reader has already finished the book, you may discuss the plot, ending, s
 
 Language
 
-Write whyItMatters and relatedTopics (title and reason) in the answer language given in the input, whatever the language of the book or its title.
+Write whyItMatters and relatedTopics (title and reason) in the answer language given in the input, whatever the language of the book or its title. Use correct, natural, standard literary spelling and grammar of that language: check agreement and case endings, and never mix in words or spellings from related languages.
 
 Always write resources in English, as exact titles of English Wikipedia articles when they exist — short and directly searchable (e.g. "Claude Shannon", "A Mathematical Theory of Communication"), not descriptive phrases. They are used as search keys, never shown to the reader. Do not invent URLs.`;
 
