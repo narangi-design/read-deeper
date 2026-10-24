@@ -28,7 +28,10 @@ export function PosterTitle({
   id?: string;
 }) {
   return (
-    <h1 id={id} className={`poster m-0 max-w-[1240px] text-balance text-signal ${posterTitleSize(title, variant)}`}>
+    <h1
+      id={id}
+      className={`poster m-0 max-w-[1240px] text-balance text-signal ${variant === "hero" ? "leading-none" : ""} ${posterTitleSize(title, variant)}`}
+    >
       {title}
     </h1>
   );

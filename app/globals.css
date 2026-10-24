@@ -10,6 +10,8 @@
   --color-concrete: #5e5e5a;
   /* Secondary text on ink */
   --color-concrete-light: #b8b6b1;
+  /* Dashed rules between list rows — decorative, not text */
+  --color-rule: #9a968d;
 
   --spacing-gutter: clamp(16px, 4vw, 56px);
 }

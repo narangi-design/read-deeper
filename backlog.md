@@ -41,7 +41,7 @@ Ordered top to bottom so that each task only depends on tasks above it.
   _Depends on: Step 2_
 - [ ] Search by translated titles — Open Library can't find "Вверх по лестнице, ведущей вниз". Proposal: search Wikidata (multilingual labels + Open Library work id, P648), fall back to Open Library search; Wikidata's label in the UI locale also answers the title question above
   _Depends on: Step 1_
-- [x] Guide loading — title fill reflects real progress: ~10% creep while the model thinks, then topics received / expected, full when the stream closes
+- [x] Guide loading — title fill never stands still: it creeps toward 97% (slower as it nears it), jumps to topics received / expected with each topic, full when the stream closes
   _Depends on: Streaming + storage, Step 4_
 - [x] Step 1 — Home/search page — server-rendered, query in the URL (`/ru?q=…`)
   _Depends on: Book search API route_
@@ -56,7 +56,7 @@ Ordered top to bottom so that each task only depends on tasks above it.
 
 - [x] Gemini thinking level set to minimal — first topics in ~1.5 s, whole guide ~4 s instead of ~27 s, close quality (compared on one book)
 - [ ] Gemini free-tier quota — 7 parallel guide generations already hit it; needs a paid tier or rate limiting before real traffic
-- [ ] Handle malformed/empty AI output gracefully (retry once, then friendly error state)
+- [ ] Handle malformed/empty AI output gracefully (retry once, then friendly error state) — guide done: Gemini sometimes stops mid-answer (finish reason "other", seen twice), the client retries once silently, then shows an error with a retry button. Remaining: topic page
   _Depends on: Context Guide, Topic Page_
 - [ ] Handle no search results / book not found state
   _Depends on: Step 1_

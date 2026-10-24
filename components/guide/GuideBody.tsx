@@ -27,11 +27,14 @@ function topicHref(locale: Locale, bookId: string, stage: Stage, title: string):
 function ResourceLink({ link, locale, dict }: { link: Resource; locale: Locale; dict: GuideStrings }) {
   const isWikipedia = link.source === "wikipedia";
   return (
-    <p className="m-0 mt-1 flex flex-wrap items-center gap-2.5 font-mono text-[13px]">
-      <span aria-hidden="true" className="inline-block size-3.5 bg-signal" />
-      <a href={link.url} target="_blank" rel="noreferrer" className="underline-offset-[3px]">
-        {isWikipedia ? link.title : dict.guide.britannica}
-      </a>
+    <p className="m-0 flex flex-wrap items-center gap-2.5 font-mono text-[13px]">
+      {/* The marker stays with the link when a long title wraps */}
+      <span className="inline-flex items-baseline gap-2.5">
+        <span aria-hidden="true" className="inline-block size-3.5 shrink-0 translate-y-0.5 bg-signal" />
+        <a href={link.url} target="_blank" rel="noreferrer" className="underline-offset-[3px]">
+          {isWikipedia ? link.title : dict.guide.britannica}
+        </a>
+      </span>
       {isWikipedia && <span className="label-mono text-xs text-concrete">{dict.guide.wikipedia}</span>}
       {link.lang !== locale && (
         <span title={dict.guide.englishOnly} className="border-2 border-ink px-1.5 font-medium tracking-[0.08em]">
@@ -59,39 +62,50 @@ export function GuideBody({
 }) {
   return (
     <>
-      <div className="flex flex-col px-gutter pb-24">
+      <div className="flex flex-col px-gutter pb-4">
         {sections.map((section, i) => (
           <section
             key={section.name}
             aria-labelledby={`section-${i}`}
-            className="stair-step flex flex-col gap-7 pt-16"
+            className="stair-step flex flex-col gap-4 pt-10"
             style={{ "--step": i } as React.CSSProperties}
           >
-            <div className="flex items-end gap-5 border-b-[3px] border-ink pb-3">
-              <span aria-hidden="true" className="poster text-[clamp(72px,9vw,128px)] leading-[0.75] text-signal">
+            <div className="flex items-end gap-5 border-b-[3px] border-ink pb-2">
+              <span aria-hidden="true" className="poster text-[clamp(48px,6vw,84px)] leading-[0.75] text-signal">
                 {String(i + 1).padStart(2, "0")}
               </span>
-              <h2 id={`section-${i}`} className="poster m-0 text-[clamp(36px,4.4vw,64px)] leading-[0.9]">
+              <h2 id={`section-${i}`} className="poster m-0 text-[clamp(28px,3.4vw,48px)] leading-[0.9]">
                 {dict.sections[section.name]}
               </h2>
             </div>
-            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,380px),1fr))] gap-x-12 gap-y-10">
+            {/* One row per topic: number | title | why + source. On phones the
+                text moves under the title. */}
+            <div>
               {section.topics.map((topic, j) => (
-                <article key={j} className="flex max-w-[620px] flex-col gap-3.5">
-                  <span className="font-mono text-xs tracking-[0.1em] text-concrete">
+                <article
+                  key={j}
+                  className="grid grid-cols-[40px_minmax(0,1fr)] items-baseline gap-x-6 gap-y-1 border-b border-dashed border-rule py-3.5 last:border-b-0 md:grid-cols-[48px_minmax(200px,300px)_minmax(0,1fr)]"
+                >
+                  <span className="row-span-3 font-mono text-xs tracking-[0.1em] text-concrete md:row-span-2">
                     {i + 1}.{j + 1}
                   </span>
-                  <h3 className="poster m-0 text-[34px] leading-[0.95] font-extrabold">
+                  <h3 className="poster m-0 text-[26px] leading-[0.95] font-extrabold md:row-span-2">
                     {topic.link ? (
                       <Link href={topicHref(locale, bookId, stage, topic.title)} className="no-underline">
-                        {topic.title} →
+                        {topic.title}
                       </Link>
                     ) : (
                       topic.title
                     )}
                   </h3>
-                  {topic.whyItMatters && <p className="m-0 text-lg leading-relaxed">{topic.whyItMatters}</p>}
-                  {topic.link && <ResourceLink link={topic.link} locale={locale} dict={dict} />}
+                  {topic.whyItMatters && (
+                    <p className="col-start-2 m-0 text-base leading-[1.45] md:col-start-3">{topic.whyItMatters}</p>
+                  )}
+                  {topic.link && (
+                    <div className="col-start-2 md:col-start-3">
+                      <ResourceLink link={topic.link} locale={locale} dict={dict} />
+                    </div>
+                  )}
                 </article>
               ))}
             </div>
@@ -100,22 +114,21 @@ export function GuideBody({
       </div>
 
       {further.length > 0 && (
-        <section
-          aria-labelledby="further-title"
-          className="flex flex-wrap gap-x-16 gap-y-10 bg-ink px-gutter pt-16 pb-18 text-paper"
-        >
-          <h2 id="further-title" className="poster m-0 flex-[0_1_360px] text-[clamp(56px,7vw,104px)]">
-            {dict.guide.further[0]}
-            <br />
-            <span className="text-signal">{dict.guide.further[1]}</span>
+        <section aria-labelledby="further-title" className="mx-gutter mt-8 mb-14 flex flex-col gap-4">
+          <h2 id="further-title" className="poster m-0 text-[clamp(48px,6vw,84px)] leading-[0.8]">
+            {dict.guide.further[0]} <span className="text-signal">{dict.guide.further[1]}</span>
           </h2>
-          <ul className="m-0 grid flex-[1_1_560px] list-none grid-cols-[repeat(auto-fit,minmax(min(100%,260px),1fr))] p-0">
+          <ul className="m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(min(260px,100%),1fr))] gap-4 p-0">
             {further.map((topic, i) => (
-              <li key={i} className="flex flex-col gap-2.5 border-t-2 border-paper pt-5 pr-6 pb-6">
+              // The whole tile is the link: the title's link stretches over it
+              <li
+                key={i}
+                className="relative flex flex-col items-start justify-between gap-4 bg-ink p-5 text-paper transition-colors has-[a]:hover:bg-signal"
+              >
                 {topic.link ? (
                   <Link
                     href={topicHref(locale, bookId, stage, topic.title)}
-                    className="poster text-[26px] leading-none font-extrabold text-paper no-underline"
+                    className="poster text-[26px] leading-none font-extrabold text-paper no-underline after:absolute after:inset-0 after:content-[''] hover:text-paper"
                   >
                     {topic.title}
                   </Link>
@@ -123,14 +136,9 @@ export function GuideBody({
                   <span className="poster text-[26px] leading-none font-extrabold">{topic.title}</span>
                 )}
                 {topic.link && (
-                  <a
-                    href={topic.link.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="font-mono text-xs text-concrete-light no-underline"
-                  >
-                    ↗ {topic.link.source === "wikipedia" ? topic.link.title : dict.guide.britannica}
-                  </a>
+                  <span className="font-mono text-xs">
+                    {topic.link.source === "wikipedia" ? topic.link.title : dict.guide.britannica}
+                  </span>
                 )}
               </li>
             ))}
